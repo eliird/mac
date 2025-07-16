@@ -18,7 +18,7 @@ fn _get_model() -> GeminiCompletionModel{
     model
 }
 
-pub fn _get_agent(prompt:&str, mcp_client: MCPClient, tools: ToolsListResponse) -> Agent<GeminiCompletionModel> {
+pub fn _get_agent(prompt:&str, mcp_config: Option<(MCPClient, ToolsListResponse)>) -> Agent<GeminiCompletionModel> {
     let model = _get_model();
     let mut builder = agent::AgentBuilder::new(model)
         .preamble(prompt)
@@ -35,15 +35,20 @@ pub fn _get_agent(prompt:&str, mcp_client: MCPClient, tools: ToolsListResponse) 
         .tool(CodebaseAnalyzer)
         .tool(JobExecutor);
 
-    builder = tools.tools
-        .into_iter()
-        .fold(builder, |builder, tool| {
-            builder.mcp_tool(tool, mcp_client.inner.clone().into())
-        });
+    // Add MCP tools dynamically if MCP is configured
+    builder = if let Some((mcp_client, tools)) = mcp_config {
+        tools.tools
+            .into_iter()
+            .fold(builder, |builder, tool| {
+                builder.mcp_tool(tool, mcp_client.inner.clone().into())
+            })
+    } else {
+        builder
+    };
     builder.build()
 }
 
-pub fn _get_agent_with_context(prompt:&str, mcp_client: MCPClient, tools: ToolsListResponse, context_docs: Vec<String>) -> Agent<GeminiCompletionModel> {
+pub fn _get_agent_with_context(prompt:&str, mcp_config: Option<(MCPClient, ToolsListResponse)>, context_docs: Vec<String>) -> Agent<GeminiCompletionModel> {
     let model = _get_model();
     let mut builder = agent::AgentBuilder::new(model)
         .preamble(prompt)
@@ -65,11 +70,16 @@ pub fn _get_agent_with_context(prompt:&str, mcp_client: MCPClient, tools: ToolsL
         builder = builder.context(&context_doc);
     }
 
-    builder = tools.tools
-        .into_iter()
-        .fold(builder, |builder, tool| {
-            builder.mcp_tool(tool, mcp_client.inner.clone().into())
-        });
+    // Add MCP tools dynamically if MCP is configured
+    builder = if let Some((mcp_client, tools)) = mcp_config {
+        tools.tools
+            .into_iter()
+            .fold(builder, |builder, tool| {
+                builder.mcp_tool(tool, mcp_client.inner.clone().into())
+            })
+    } else {
+        builder
+    };
     builder.build()
 }
 

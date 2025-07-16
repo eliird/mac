@@ -39,27 +39,27 @@ pub fn get_model_type() -> ModelType {
     }
 }
 
-pub fn get_agent(prompt: &str, mcp_client: MCPClient, tools: ToolsListResponse) -> AgentWrapper {
+pub fn get_agent(prompt: &str, mcp_config: Option<(MCPClient, ToolsListResponse)>) -> AgentWrapper {
     match get_model_type() {
         ModelType::Local => {
-            let agent = crate::local::get_agent(prompt, mcp_client, tools);
+            let agent = crate::local::get_agent(prompt, mcp_config);
             AgentWrapper::Local(agent)
         }
         ModelType::Gemini => {
-            let agent = crate::gemini::_get_agent(prompt, mcp_client, tools);
+            let agent = crate::gemini::_get_agent(prompt, mcp_config);
             AgentWrapper::Gemini(agent)
         }
     }
 }
 
-pub fn get_agent_with_context(prompt: &str, mcp_client: MCPClient, tools: ToolsListResponse, context_docs: Vec<String>) -> AgentWrapper {
+pub fn get_agent_with_context(prompt: &str, mcp_config: Option<(MCPClient, ToolsListResponse)>, context_docs: Vec<String>) -> AgentWrapper {
     match get_model_type() {
         ModelType::Local => {
-            let agent = crate::local::get_agent_with_context(prompt, mcp_client, tools, context_docs);
+            let agent = crate::local::get_agent_with_context(prompt, mcp_config, context_docs);
             AgentWrapper::Local(agent)
         }
         ModelType::Gemini => {
-            let agent = crate::gemini::_get_agent_with_context(prompt, mcp_client, tools, context_docs);
+            let agent = crate::gemini::_get_agent_with_context(prompt, mcp_config, context_docs);
             AgentWrapper::Gemini(agent)
         }
     }

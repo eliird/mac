@@ -16,7 +16,7 @@ fn get_model() -> openai::CompletionModel {
     model
 }
 
-pub fn get_agent(prompt: &str, mcp_client: MCPClient, tools: ToolsListResponse) -> Agent<openai::CompletionModel> {
+pub fn get_agent(prompt: &str, mcp_config: Option<(MCPClient, ToolsListResponse)>) -> Agent<openai::CompletionModel> {
     let model = get_model();
     let builder = AgentBuilder::new(model)
         .preamble(prompt)
@@ -33,17 +33,21 @@ pub fn get_agent(prompt: &str, mcp_client: MCPClient, tools: ToolsListResponse) 
         .tool(CodebaseAnalyzer)
         .tool(JobExecutor);
 
-    // Add all MCP tools dynamically
-    let builder = tools.tools
-        .into_iter()
-        .fold(builder, |builder, tool| {
-            builder.mcp_tool(tool, mcp_client.inner.clone().into())
-        });
+    // Add MCP tools dynamically if MCP is configured
+    let builder = if let Some((mcp_client, tools)) = mcp_config {
+        tools.tools
+            .into_iter()
+            .fold(builder, |builder, tool| {
+                builder.mcp_tool(tool, mcp_client.inner.clone().into())
+            })
+    } else {
+        builder
+    };
 
     builder.build()
 }
 
-pub fn get_agent_with_context(prompt: &str, mcp_client: MCPClient, tools: ToolsListResponse, context_docs: Vec<String>) -> Agent<openai::CompletionModel> {
+pub fn get_agent_with_context(prompt: &str, mcp_config: Option<(MCPClient, ToolsListResponse)>, context_docs: Vec<String>) -> Agent<openai::CompletionModel> {
     let model = get_model();
     let mut builder = AgentBuilder::new(model)
         .preamble(prompt)
@@ -65,12 +69,16 @@ pub fn get_agent_with_context(prompt: &str, mcp_client: MCPClient, tools: ToolsL
         builder = builder.context(&context_doc);
     }
 
-    // Add all MCP tools dynamically
-    let builder = tools.tools
-        .into_iter()
-        .fold(builder, |builder, tool| {
-            builder.mcp_tool(tool, mcp_client.inner.clone().into())
-        });
+    // Add MCP tools dynamically if MCP is configured
+    let builder = if let Some((mcp_client, tools)) = mcp_config {
+        tools.tools
+            .into_iter()
+            .fold(builder, |builder, tool| {
+                builder.mcp_tool(tool, mcp_client.inner.clone().into())
+            })
+    } else {
+        builder
+    };
 
     builder.build()
 }

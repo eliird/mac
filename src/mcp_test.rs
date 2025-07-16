@@ -25,7 +25,13 @@ pub struct MCPClient {
 }
 
 impl MCPClient {
-    pub async fn new(mcp_agent_path_sse: &str) -> Result<Self> {
+    pub async fn new() -> Result<Self> {
+        // Use default MCP URL from environment or fallback
+        let mcp_url = std::env::var("MCP_SERVER_URL").unwrap_or_else(|_| "http://localhost:3000/sse".to_string());
+        Self::new_with_url(&mcp_url).await
+    }
+    
+    pub async fn new_with_url(mcp_agent_path_sse: &str) -> Result<Self> {
         // Build SSE transport and initialize client
         // Adjust the URL as needed for your setup
         tracing::info!("Initializing MCP client with SSE transport...");

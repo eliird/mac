@@ -96,8 +96,7 @@ async fn run_cli_chat(agent: AgentWrapper) -> Result<(), Error> {
 
 async fn create_contextual_agent(
     system_prompt: &str,
-    mcp_client: MCPClient,
-    tools: mcp_core::types::ToolsListResponse,
+    mcp_config: Option<(MCPClient, mcp_core::types::ToolsListResponse)>,
     codebase_path: &str,
     exection_script: &str,
 ) -> Result<AgentWrapper, Error> {
@@ -112,7 +111,7 @@ async fn create_contextual_agent(
     println!("✅ Context documents prepared ({} docs)", context_docs.len());
 
     // Create agent with context
-    let agent = model_selector::get_agent_with_context(system_prompt, mcp_client, tools, context_docs);
+    let agent = model_selector::get_agent_with_context(system_prompt, mcp_config, context_docs);
     println!("✅ Context-aware agent created");
 
     Ok(agent)
@@ -129,20 +128,44 @@ async fn main() -> Result<(), Error> {
     let system_prompt = read_text_file("prompt.txt")?;
     println!("✅ System prompt loaded successfully");
 
-    println!("🔌 Initializing MCP client...");
-    let mcp_client = MCPClient::new().await?;
-    println!("✅ MCP client initialized");
-
-    println!("🛠️  Listing available tools...");
-    let tools = mcp_client.inner.list_tools(None, None).await?;
-    println!("✅ Found {:?} tools", tools);
+    // Check if MCP server URL is provided
+    let mcp_config = match std::env::var("MCP_SERVER_URL") {
+        Ok(mcp_url) if !mcp_url.is_empty() => {
+            println!("🔌 Initializing MCP client with URL: {}", mcp_url);
+            match MCPClient::new_with_url(&mcp_url).await {
+                Ok(mcp_client) => {
+                    println!("✅ MCP client initialized");
+                    
+                    println!("🛠️  Listing available tools...");
+                    match mcp_client.inner.list_tools(None, None).await {
+                        Ok(tools) => {
+                            println!("✅ Found {} MCP tools", tools.tools.len());
+                            Some((mcp_client, tools))
+                        }
+                        Err(e) => {
+                            eprintln!("⚠️  Failed to list MCP tools: {}. Continuing without MCP.", e);
+                            None
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("⚠️  Failed to initialize MCP client: {}. Continuing without MCP.", e);
+                    None
+                }
+            }
+        }
+        _ => {
+            println!("ℹ️  No MCP_SERVER_URL provided, running without MCP integration");
+            None
+        }
+    };
 
     println!("🤖 Setting up context-aware agent...");
     let codebase_path = "test_code";
     let job_execution_script = "./test_code/run.sh";
     println!("📂 Codebase path: {}", codebase_path);
     println!("📄 Job execution script: {}", job_execution_script);
-    let agent = create_contextual_agent(&system_prompt, mcp_client, tools, codebase_path, job_execution_script).await?;
+    let agent = create_contextual_agent(&system_prompt, mcp_config, codebase_path, job_execution_script).await?;
     println!("✅ Context-aware agent ready with knowledge of {}", codebase_path);
 
     run_cli_chat(agent).await?;
